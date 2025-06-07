@@ -252,6 +252,8 @@ class RingCircleDialog(forms.Form):
             # Use custom sorting for ring sizes
             size_keys = sorted(list(sizes.keys()), key=custom_ring_sort_key)
             
+            # The DataStore is populated with the original size keys (strings).
+            # If these keys in ring_sizes.py use UTF-8 representations for fractions, they will be displayed as such.
             self.size_dropdown.DataStore = size_keys
             if size_keys:
                 self.size_dropdown.SelectedIndex = 0
@@ -341,7 +343,7 @@ class RingCircleDialog(forms.Form):
             DIALOG_INSTANCE = None
         print("Ring Circle Dialog closed.")
 
-def ShowRingCircleDialogCommand():
+def ShowRingsizeGeneratorCmd():
     global DIALOG_INSTANCE
     # print("DEBUG ShowRingCircleDialogCommand: Entered function.")
 
@@ -362,7 +364,8 @@ def ShowRingCircleDialogCommand():
             DIALOG_INSTANCE.Owner = rs.RhinoApp.MainWindow
             # print("DEBUG ShowRingCircleDialogCommand: Dialog owner set to Rhino main window.")
         except AttributeError:
-            print("DEBUG ShowRingCircleDialogCommand: rs.RhinoApp not available. Dialog will not be parented to main window.")
+            pass
+            # print("DEBUG ShowRingGeneratorCmd: rs.RhinoApp not available. Dialog will not be parented to main window.")
         DIALOG_INSTANCE.Show() # Modeless display
     else:
         # Dialog instance already exists, bring it to the front and ensure it's visible.
@@ -370,12 +373,35 @@ def ShowRingCircleDialogCommand():
         DIALOG_INSTANCE.BringToFront()
         DIALOG_INSTANCE.Show() # Ensures the dialog is visible if it was hidden
 
+def create_or_update_alias():
+    """
+    Programmatically creates or updates the 'ShowRingsizeGenerator' alias in Rhino
+    to point to the current script.
+    """
+    alias_name = "ShowRingsizeGenerator"
+    try:
+        # Get the absolute path of the currently running script
+        script_path = os.path.abspath(__file__)
+        expected_macro = '_-RunPythonScript "{}"'.format(script_path)
+
+        current_macro = rs.AliasMacro(alias_name)
+
+        if current_macro != expected_macro:
+            if rs.AddAlias(alias_name, expected_macro):
+                print("Rhino alias '{}' created/updated successfully to run this script.".format(alias_name))
+            else:
+                print("Error: Failed to create/update Rhino alias '{}'.".format(alias_name))
+        # else:
+            # print("Rhino alias '{}' is already correctly configured.".format(alias_name)) # Optional: for verbose feedback
+    except Exception as e:
+        print("Error during alias setup for '{}': {}".format(alias_name, e))
+
 if __name__ == "__main__":
     # This block executes when the script is run in Rhino.
-    # The import checks at the top should have already validated ring_data_by_country.
-    # print("DEBUG ringSizeGenerator: Inside `if __name__ == \"__main__\":` block.")
+    create_or_update_alias() # Ensure the alias is set up
+
     try:
-        ShowRingCircleDialogCommand()
+        ShowRingsizeGeneratorCmd()
         # print("DEBUG ringSizeGenerator: ShowRingCircleDialogCommand() called successfully from __main__.")
     except Exception as e_main:
         print("DEBUG ringSizeGenerator: EXCEPTION in `if __name__ == \"__main__\"`: {}".format(e_main))
