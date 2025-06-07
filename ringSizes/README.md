@@ -1,4 +1,4 @@
-** Ring Size Generator **
+## Ring Size Generator ##
 
 Script to install a custom command for a ring size generator in Rhino 8
 
