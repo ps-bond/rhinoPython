@@ -6,4 +6,4 @@ Assortment of scripts for using with Rhinoceros 8
 
 ## [Ring size generator](ringSizes)
 
-Scripts to scrape & generate a dictionary of ring sizes and use it in creating a dialogue box to switch between the various systems.
+Script to create ring sizes for various systems using a dialogue box.  Ring sizes and systems are scraped from the Wikipedia page via the included script.
