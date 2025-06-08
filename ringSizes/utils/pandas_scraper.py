@@ -1,5 +1,8 @@
 # Using pandas, scrape the ring sizes from the Wikipedia page
 # to contain the ring size data.
+# Author: Peter Bond
+# Date: 7 June 2025
+
 import pandas as pd
 
 url = 'https://en.wikipedia.org/wiki/Ring_size'
@@ -12,7 +15,24 @@ COUNTRY_NAME_TO_SHORT_CODE_MAPPING = {
     'East Asia (China, Japan, South Korea), South America': 'Japan',
     'India': 'India',
     'Italy, Spain, Netherlands, Switzerland': 'Italy',
-    'France': 'Frances'
+    '(mm)  ISO (Continental Europe)': 'ISO' # Ensure this EXACTLY matches the column header after stripping
+}
+
+# Configuration for where to find specific size columns in the table.
+# Keys are the top-level column names in the DataFrame.
+# Values are lists of sub-column names that represent different regions/standards.
+COLUMN_CONFIG = {
+    'Sizes': [
+        'United Kingdom, Ireland, Australia, South Africa and New Zealand',
+        'United States, Canada and Mexico',
+        'East Asia (China, Japan, South Korea), South America',
+        'India',
+        'Italy, Spain, Netherlands, Switzerland',
+        'France'
+    ],
+    'Inside circumference': [ # ISO sizes are typically found here
+        '(mm)  ISO (Continental Europe)' # This is the sub-column name under 'Inside circumference'
+    ]
 }
 
 def fetch_ring_sizes():
@@ -47,7 +67,7 @@ def fetch_ring_sizes():
         current_table_df = table_df.copy()
 
         print(f"\n--- Table {i} ---")
-        print(current_table_df.head())
+        # print(current_table_df.head()) # Can be verbose, print columns instead
 
         # Check if a good number of expected columns are present (case-insensitive check)
         # Check if actual top-level column names from the table match expected
@@ -55,6 +75,7 @@ def fetch_ring_sizes():
             actual_top_level_columns = [str(col).strip().lower() for col in current_table_df.columns.get_level_values(0)]
         else: # Simple Index
             actual_top_level_columns = [str(col).strip().lower() for col in current_table_df.columns]
+        print(f"Table {i} columns (cleaned, lowercased): {actual_top_level_columns}")
 
         found_expected_cols_count = 0
         for expected_col_top in expected_top_level_columns:
@@ -64,6 +85,7 @@ def fetch_ring_sizes():
         # Heuristic: if we find at least 2 of our main expected top-level columns
         if found_expected_cols_count >= 2: # e.g., 'Sizes' and 'Inside diameter'
             target_table = current_table_df
+            print(f"Selected Table {i} columns (original): {target_table.columns.tolist()}")
             print(f"Selected Table {i} as the target ring size table based on top-level columns.")
             break
             
@@ -90,38 +112,34 @@ def fetch_ring_sizes():
 
     return target_table
 
-def generate_ring_sizes_dict(df, country_col_name):
+def generate_ring_sizes_dict(df, size_col_tuple, diameter_col_tuple=('Inside diameter', '(mm)')):
     """
     Generates a dictionary from the DataFrame containing ring sizes and their corresponding inside diameters
     for a specific country.
     
     Args:
         df (pd.DataFrame): The DataFrame containing ring size data.
-        country_col_name (str): The name of the country column under 'Sizes'.
+        size_col_tuple (tuple): Tuple representing the path to the size series, 
+                                e.g., ('Sizes', 'Country Name') or ('Inside circumference', 'ISO Continental Europe').
+        diameter_col_tuple (tuple): Tuple representing the path to the diameter series, 
+                                    defaults to ('Inside diameter', '(mm)').
 
     Returns:
         dict: A dictionary with ring sizes as keys and inside diameters as values.
     """
     ring_sizes_dict = {}
     
-    if 'Sizes' not in df.columns or 'Inside diameter' not in df.columns:
-        print("Warning: DataFrame missing 'Sizes' or 'Inside diameter' top-level columns.")
+    try:
+        # Ensure the columns exist before trying to access them
+        if not all(col in df.columns for col in [size_col_tuple[0], diameter_col_tuple[0]]):
+            print(f"Warning: Top-level columns for size or diameter not found. Needed: {size_col_tuple[0]}, {diameter_col_tuple[0]}")
+            return {}
+        
+        country_sizes_series = df[size_col_tuple].dropna()
+        diameter_mm_series = df[diameter_col_tuple].dropna()
+    except KeyError as e:
+        print(f"Warning: Column path not found in DataFrame: {e}. Size tuple: {size_col_tuple}, Diameter tuple: {diameter_col_tuple}")
         return {}
-
-    sizes_data = df['Sizes']
-    diameter_data = df['Inside diameter']
-
-    if country_col_name not in sizes_data.columns:
-        print(f"Warning: Country column '{country_col_name}' not found under 'Sizes'.")
-        return {}
-    
-    country_sizes_series = sizes_data[country_col_name].dropna()
-
-    if '(mm)' not in diameter_data.columns:
-        print(f"Warning: Diameter column '(mm)' not found under 'Inside diameter'.")
-        return {}
-
-    diameter_mm_series = diameter_data['(mm)'].dropna()
 
     for index, size_value in country_sizes_series.items():
         if index in diameter_mm_series.index:
@@ -130,7 +148,7 @@ def generate_ring_sizes_dict(df, country_col_name):
                 try:
                     ring_sizes_dict[str(size_value)] = float(diameter_value)
                 except ValueError:
-                    print(f"Warning: Could not convert size '{size_value}' or diameter '{diameter_value}' for country '{country_col_name}'. Skipping.")
+                    print(f"Warning: Could not convert size '{size_value}' or diameter '{diameter_value}' for {size_col_tuple}. Skipping.")
     return ring_sizes_dict
 
 def generate_python_module_from_data(data_by_country, module_name='ring_data_module'):
@@ -182,28 +200,49 @@ def process_ring_data_by_country(ring_sizes_df):
               of {size: diameter}.
     """
     all_countries_ring_data = {}
-    if 'Sizes' in ring_sizes_df.columns and isinstance(ring_sizes_df['Sizes'], pd.DataFrame):
-        country_column_names = ring_sizes_df['Sizes'].columns.tolist()
-        for country_name in country_column_names:
-            country_name_cleaned = country_name.strip()
-            print(f"Processing country: {country_name_cleaned}")
+    diameter_col_tuple = ('Inside diameter', '(mm)') # Standard path for diameter data
+
+    for top_level_col, sub_column_names_list in COLUMN_CONFIG.items():
+        if top_level_col not in ring_sizes_df.columns:
+            print(f"Warning: Top-level column '{top_level_col}' not found in DataFrame. Skipping associated regions.")
+            continue
+
+        for sub_col_name in sub_column_names_list:
+            country_name_in_table = sub_col_name.strip() # This is the name as it appears in the table
             
-            country_specific_sizes_dict = generate_ring_sizes_dict(ring_sizes_df, country_name) # Pass original full name
+            # Construct the column tuple for accessing the data
+            # For 'Sizes', it's usually ('Sizes', 'Country Name')
+            # For 'Inside circumference', if the sub_col_name is the actual full column name,
+            # the tuple might just be (top_level_col, sub_col_name) if it's a MultiIndex,
+            # or potentially just sub_col_name if the top_level_col is not part of a MultiIndex for that specific column.
+            # The Wikipedia table structure for 'Inside circumference' -> 'ISO' is often a direct column,
+            # not nested like 'Sizes' -> 'Country'.
+            # Let's assume the table structure is ('Inside circumference', '(mm) ISO (Continental Europe)')
             
-            if country_specific_sizes_dict:
-                short_code = COUNTRY_NAME_TO_SHORT_CODE_MAPPING.get(country_name_cleaned)
-                if short_code:
+            potential_size_col_tuple = (top_level_col, country_name_in_table)
+            
+            # Check if this column path actually exists
+            try:
+                _ = ring_sizes_df[potential_size_col_tuple] # Test access
+                print(f"Processing region: '{country_name_in_table}' using column path {potential_size_col_tuple}")
+                country_specific_sizes_dict = generate_ring_sizes_dict(ring_sizes_df, potential_size_col_tuple, diameter_col_tuple)
+            except KeyError:
+                print(f"Warning: Column path {potential_size_col_tuple} not found. Skipping '{country_name_in_table}'.")
+                continue
+            
+            short_code = COUNTRY_NAME_TO_SHORT_CODE_MAPPING.get(country_name_in_table)
+            if short_code:
+                if country_specific_sizes_dict:
                     all_countries_ring_data[short_code] = {
-                        'full_name': country_name_cleaned,
+                        'full_name': country_name_in_table, # Use the name from the table as the full name
                         'sizes': country_specific_sizes_dict
                     }
-                    print(f"Mapped '{country_name_cleaned}' to short code '{short_code}'. Data included.")
+                    print(f"Mapped '{country_name_in_table}' to short code '{short_code}'. Data included.")
                 else:
-                    print(f"Warning: No short code mapping found for '{country_name_cleaned}'. This country's data will be skipped. Update COUNTRY_NAME_TO_SHORT_CODE_MAPPING if required.")
+                    print(f"No size data generated for '{country_name_in_table}' under '{top_level_col}'.")
             else:
-                print(f"No size data generated for {country_name_cleaned}")
-    else:
-        print("Could not find 'Sizes' sub-columns or 'Sizes' is not structured as expected.")
+                print(f"Warning: No short code mapping found for '{country_name_in_table}'. This region's data will be skipped. Update COUNTRY_NAME_TO_SHORT_CODE_MAPPING if required.")
+
     return all_countries_ring_data
 
 def main():
