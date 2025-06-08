@@ -1,4 +1,4 @@
-## Ring Size Generator ##
+# Ring Size Generator
 
 Script to install a custom command for a ring size generator in Rhino 8
 
@@ -10,10 +10,16 @@ There's a utility to generate the ring sizes data by scraping the wiki page; thi
 
 Run the script with 
 
-RunPythonScript 
+`RunPythonScript` 
 
-Find the file ringSizeGenerator.py and select it.  ring_size.py needs to be in the same directory (or pathed to it).
+Find the file `ringSizeGenerator.py` and select it.  `ring_size.py` needs to be in the same directory (or pathed to it).
 
 The alias to reshow the window is
-ShowRingsizeGenerator
+`ShowRingsizeGenerator`
+
+## To do
+
+Add the ISO sizes to the generated table
+
+Localisation?  Could be interesting to do.
 
