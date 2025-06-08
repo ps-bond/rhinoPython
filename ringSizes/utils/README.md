@@ -8,5 +8,3 @@ Yes, I could have built it by hand but where's the fun in that?
 Note that this util is NOT needed by the Rhino script - only the output is and that's already part of the repo
 
 ## To do
-
-Extract the ISO table as well as the countries and store that in the table
