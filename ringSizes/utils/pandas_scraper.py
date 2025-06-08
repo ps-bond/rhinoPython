@@ -28,7 +28,6 @@ COLUMN_CONFIG = {
         'East Asia (China, Japan, South Korea), South America',
         'India',
         'Italy, Spain, Netherlands, Switzerland',
-        'France'
     ],
     'Inside circumference': [ # ISO sizes are typically found here
         '(mm)  ISO (Continental Europe)' # This is the sub-column name under 'Inside circumference'

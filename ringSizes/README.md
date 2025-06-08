@@ -19,7 +19,5 @@ The alias to reshow the window is
 
 ## To do
 
-Add the ISO sizes to the generated table
-
 Localisation?  Could be interesting to do.
 
