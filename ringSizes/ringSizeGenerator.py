@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
-# # Script: CreateRingCircleCommand.py
-# Description: Creates a Rhino command to draw circles based on international ring sizes.
+# # Script: ringSizeGenerator.py
+# Description: Creates a Rhino dialogue box to draw circles based on international ring sizes.
 # Author: Peter Bond
 # Date: 7 June 2025
 
 import rhinoscriptsyntax as rs
+import Rhino
 import Eto.Forms as forms
 import Eto.Drawing as drawing
 import sys
@@ -16,20 +17,16 @@ import os
 ring_data_by_country = None
 # print("DEBUG ringSizeGenerator: Script started. 'ring_data_by_country' is initially None.")
 try:
-    # This assumes 'CreateRingCircleCommand.py' (this script) is in a directory (e.g., '.../rhinoPython/'),
-    # and 'ringSizes' is a subdirectory within that same directory, containing 'ring_sizes.py'
-    # and an '__init__.py' file.
+    # This assumes 'ringSizeGenerator.py' (this script) is in a directory (e.g., '.../rhinoPython/'),
+    # 'ring_sizes.py' is in the same directory
     # Example structure:
     # .../rhinoPython/
     #   ringSizeGenerator.py  (this script, assuming it's in ringSizes folder)
-    #   ringSizes/
-    #     __init__.py
-    #     ring_sizes.py
+    #   ring_sizes.py
     #
     # Rhino usually adds the script's directory to sys.path, so direct import should work.
     # Corrected import assuming '.../rhinoPython/' is on sys.path
-    # and 'ringSizes' is a package within it.
-    # print("DEBUG ringSizeGenerator: Attempting to import ring_data_by_country from ringSizes.ring_sizes")
+    # print("DEBUG ringSizeGenerator: Attempting to import ring_data_by_country from ring_sizes")
     from ring_sizes import ring_data_by_country
     # print("DEBUG ringSizeGenerator: Import successful.")
     # print("DEBUG ringSizeGenerator: type(ring_data_by_country) AFTER import statement =", type(ring_data_by_country))
@@ -130,14 +127,18 @@ def custom_ring_sort_key(size_str):
         parts = [int(part) if part.isdigit() else part.lower() for part in re.split(r'(\d+)', str(size_str)) if part]
         return (1, parts) # Type 1 for strings/alphanumeric
 
-class RingCircleDialog(forms.Form):
+class RingSizeGeneratorDialogue(forms.Form):
+    """
+    An Eto.Forms.Form dialog for selecting international ring sizes and generating
+    corresponding circles in Rhino.
+    """
     def __init__(self): # MODIFIED: No arguments initially
-        # print("DEBUG RingCircleDialog.__init__: Entered constructor.")
-        super(RingCircleDialog, self).__init__() # Explicitly call the base class constructozzr
+        # print("DEBUG RingSizeGeneratorDialogue.__init__: Entered constructor.")
+        super(RingSizeGeneratorDialogue, self).__init__() # Explicitly call the base class constructor
 
         # Initialize ring_data as an empty dict or None, to be set later
         self.ring_data = {}
-        # print("DEBUG RingCircleDialog.__init__: type(data) received =", type(data)) # Original data handling
+        # print("DEBUG RingSizeGeneratorDialogue.__init__: type(data) received =", type(data)) # Original data handling
         # self.ring_data = data
 
         self.Title = "Ring Size Generator"
@@ -174,7 +175,7 @@ class RingCircleDialog(forms.Form):
         layout = forms.DynamicLayout()
         layout.Spacing = drawing.Size(5, 10) # Horizontal, Vertical spacing
         layout.Padding = drawing.Padding(5)
-        # print("DEBUG RingCircleDialog.__init__: Layout created. About to add country_label.")
+        # print("DEBUG RingSizeGeneratorDialogue.__init__: Layout created. About to add country_label.")
         # print("DEBUG: type of forms.Label is {}, type of self.country_label is {}".format(type(forms.Label), type(self.country_label)))
         
         layout.AddRow(self.country_label)
@@ -189,14 +190,14 @@ class RingCircleDialog(forms.Form):
         buttons_layout.Spacing = drawing.Size(5,5)
         buttons_layout.AddRow(None, self.accept_button, self.close_button, None) # Center buttons
         layout.AddRow(buttons_layout)
-        # print("DEBUG RingCircleDialog.__init__: All rows added to layout. Setting Content.")
+        # print("DEBUG RingSizeGeneratorDialogue.__init__: All rows added to layout. Setting Content.")
 
         self.Content = layout
 
     def load_data_and_populate(self, data_to_load):
         """Loads the ring data and populates the dropdowns."""
-        # print("DEBUG RingCircleDialog.load_data_and_populate: Called.")
-        # print("DEBUG RingCircleDialog.load_data_and_populate: type(data_to_load) =", type(data_to_load))
+        # print("DEBUG RingSizeGeneratorDialogue.load_data_and_populate: Called.")
+        # print("DEBUG RingSizeGeneratorDialogue.load_data_and_populate: type(data_to_load) =", type(data_to_load))
         self.ring_data = data_to_load
 
         if self.ring_data and isinstance(self.ring_data, dict): # Ensure ring_data is a usable dict
@@ -337,39 +338,48 @@ class RingCircleDialog(forms.Form):
         self.Close()
 
     def OnClosed(self, e):
-        super(RingCircleDialog, self).OnClosed(e)
+        super(RingSizeGeneratorDialogue, self).OnClosed(e)
         global DIALOG_INSTANCE
         if DIALOG_INSTANCE is self:
             DIALOG_INSTANCE = None
-        print("Ring Circle Dialog closed.")
+        print("Ring Generator Dialogue closed.")
 
 def ShowRingsizeGeneratorCmd():
     global DIALOG_INSTANCE
-    # print("DEBUG ShowRingCircleDialogCommand: Entered function.")
+    # print("DEBUG ShowRingSizeGeneratorCmd: Entered function.")
 
     # The bare_test_form block was for debugging and can be removed for cleaner code.
 
     if DIALOG_INSTANCE is None or DIALOG_INSTANCE.IsDisposed:
         # Dialog does not exist or was closed, create a new one
-        # print("DEBUG ShowRingCircleDialogCommand: About to instantiate RingCircleDialog.")
-        # print("DEBUG ShowRingCircleDialogCommand: Type of ring_data_by_country being passed to constructor:", type(ring_data_by_country)) # Old log
-        DIALOG_INSTANCE = RingCircleDialog() # MODIFIED: Instantiate with no arguments
-        # print("DEBUG ShowRingCircleDialogCommand: RingCircleDialog() instantiated. Now loading data.")
+        # print("DEBUG ShowRingSizeGeneratorCmd: About to instantiate RingSizeGeneratorDialogue.")
+        # print("DEBUG ShowRingSizeGeneratorCmd: Type of ring_data_by_country being passed to constructor:", type(ring_data_by_country)) # Old log
+        DIALOG_INSTANCE = RingSizeGeneratorDialogue() # MODIFIED: Instantiate with no arguments
+        # print("DEBUG ShowRingSizeGeneratorCmd: RingSizeGeneratorDialogue() instantiated. Now loading data.")
         DIALOG_INSTANCE.load_data_and_populate(ring_data_by_country) # Set data via method
-        # print("DEBUG ShowRingCircleDialogCommand: Data loaded into dialog.")
-        # print("DEBUG ShowRingCircleDialogCommand: RingCircleDialog instantiation attempted/completed.")
+        # print("DEBUG ShowRingSizeGeneratorCmd: Data loaded into dialog.")
+        # print("DEBUG ShowRingSizeGeneratorCmd: RingSizeGeneratorDialogue instantiation attempted/completed.")
         
         # Attempt to set owner, but proceed if RhinoApp is not available
         try:
-            DIALOG_INSTANCE.Owner = rs.RhinoApp.MainWindow
-            # print("DEBUG ShowRingCircleDialogCommand: Dialog owner set to Rhino main window.")
-        except AttributeError:
+            # Try using RhinoEtoApp.MainWindow first, as it's more likely to be Eto-compatible
+            if hasattr(Rhino, 'UI') and hasattr(Rhino.UI, 'RhinoEtoApp'):
+                DIALOG_INSTANCE.Owner = Rhino.UI.RhinoEtoApp.MainWindow
+                print("DEBUG ShowRingSizeGeneratorCmd: Dialog owner set to RhinoEtoApp.MainWindow.")
+            else:
+                # Fallback to RhinoApp.MainWindow if RhinoEtoApp is not available
+                DIALOG_INSTANCE.Owner = Rhino.RhinoApp.MainWindow()
+                print("DEBUG ShowRingSizeGeneratorCmd: Dialog owner set to Rhino.RhinoApp.MainWindow().")
+        except AttributeError as ae:
+            # print("DEBUG ShowRingGeneratorCmd: AttributeError while setting owner: {}. Dialog will not be parented.".format(ae))
             pass
-            # print("DEBUG ShowRingGeneratorCmd: rs.RhinoApp not available. Dialog will not be parented to main window.")
+        except TypeError as te:
+            # print("DEBUG ShowRingGeneratorCmd: TypeError while setting owner (possibly type mismatch): {}. Dialog will not be parented.".format(te))
+            pass
         DIALOG_INSTANCE.Show() # Modeless display
     else:
         # Dialog instance already exists, bring it to the front and ensure it's visible.
-        # print("DEBUG ShowRingCircleDialogCommand: Dialog instance already exists, bringing to front.")
+        # print("DEBUG ShowRingSizeGeneratorCmd: Dialog instance already exists, bringing to front.")
         DIALOG_INSTANCE.BringToFront()
         DIALOG_INSTANCE.Show() # Ensures the dialog is visible if it was hidden
 
@@ -402,8 +412,8 @@ if __name__ == "__main__":
 
     try:
         ShowRingsizeGeneratorCmd()
-        # print("DEBUG ringSizeGenerator: ShowRingCircleDialogCommand() called successfully from __main__.")
-    except Exception as e_main:
-        print("DEBUG ringSizeGenerator: EXCEPTION in `if __name__ == \"__main__\"`: {}".format(e_main))
-        rs.MessageBox("An error occurred running the command: {}".format(e_main), title="Command Error")
+        # print("DEBUG ringSizeGenerator: ShowRingSizeGeneratorCmd() called successfully from __main__.")
+    except Exception as e_main: # Use a more specific variable name if you prefer, e.g., main_exception
+        print("DEBUG ringSizeGenerator: EXCEPTION in `if __name__ == \"__main__\"`: {}".format(e_main)) # This line is fine
+        rs.MessageBox("An error occurred running the command: {}".format(e_main), title="Command Error") # This line is fine
         raise # Re-raise to see full traceback if possible

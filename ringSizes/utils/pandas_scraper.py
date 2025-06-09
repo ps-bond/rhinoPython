@@ -45,7 +45,7 @@ def fetch_ring_sizes():
     # Read the HTML tables from the Wikipedia page
     tables = pd.read_html(url)
     
-    # The specific table we want is usually the first one, but this can vary.
+    # The specific table we want is ussually the first one, but this can vary.
     # Inspect the tables to find the correct one.
     if not tables:
         raise ValueError("No tables found on the page.")
@@ -129,10 +129,16 @@ def generate_ring_sizes_dict(df, size_col_tuple, diameter_col_tuple=('Inside dia
     ring_sizes_dict = {}
     
     try:
-        # Ensure the columns exist before trying to access them
-        if not all(col in df.columns for col in [size_col_tuple[0], diameter_col_tuple[0]]):
-            print(f"Warning: Top-level columns for size or diameter not found. Needed: {size_col_tuple[0]}, {diameter_col_tuple[0]}")
-            return {}
+        # Ensure the top-level columns exist before trying to access them
+        if isinstance(df.columns, pd.MultiIndex):
+            top_level_cols_present = df.columns.get_level_values(0)
+            if not all(col_top_level in top_level_cols_present for col_top_level in [size_col_tuple[0], diameter_col_tuple[0]]):
+                print(f"Warning: Top-level columns for size or diameter not found in MultiIndex. Needed: {size_col_tuple[0]}, {diameter_col_tuple[0]}")
+                return {}
+        else: # Simple Index
+            if not all(col in df.columns for col in [size_col_tuple[0], diameter_col_tuple[0]]):
+                print(f"Warning: Columns for size or diameter not found in simple Index. Needed: {size_col_tuple[0]}, {diameter_col_tuple[0]}")
+                return {}
         
         country_sizes_series = df[size_col_tuple].dropna()
         diameter_mm_series = df[diameter_col_tuple].dropna()
